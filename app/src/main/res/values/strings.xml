@@ -81,7 +81,7 @@
     <string name="piper_need_voice">Descarcă mai întâi o voce naturală: Voce → Naturală.</string>
     <string name="piper_error">Eroare la vocea naturală: %s</string>
     <string name="piper_delete_title">Ștergi vocea %s?</string>
-    <string name="piper_delete_message">Fișierele vocii vor fi șterse de pe telefon. O poți descărca din nou oricând.</string>
+    <string name="piper_delete_message">Fișierele vocii vor fi șterse de pe telefon (inclusiv celelalte voci din același model). O poți descărca din nou oricând.</string>
     <string name="piper_sample_ro">Bună! Eu sunt vocea care îți va citi cărțile, gratuit și fără internet.</string>
     <string name="piper_sample_en">Hello! I am the voice that will read your books, for free and without internet.</string>
     <string name="voice_auto">Automat</string>

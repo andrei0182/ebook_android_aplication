@@ -45,12 +45,12 @@ class PiperSpeaker(ctx: Context, private val listener: Speaker.Listener) : Speak
 
     override fun applySettings(): Boolean = true
 
-    private fun voiceId(): String? =
-        PiperVoices.choose(PiperVoices.installed(app), prefs.piperVoice, language)?.id
+    private fun chooseVoice(): PiperVoices.VoiceInfo? =
+        PiperVoices.choose(PiperVoices.installed(app), prefs.piperVoice, language)
 
     override fun speak(paragraphs: List<Paragraph>, from: Int) {
         stop()
-        val voice = voiceId()
+        val voice = chooseVoice()
         if (voice == null) {
             listener.onSpeakerError(app.getString(R.string.piper_need_voice)); return
         }
@@ -75,7 +75,7 @@ class PiperSpeaker(ctx: Context, private val listener: Speaker.Listener) : Speak
         main.post(ticker)
     }
 
-    private fun playLoop(gen: Int, voice: String, speed: Float, list: List<Piece>) {
+    private fun playLoop(gen: Int, voice: PiperVoices.VoiceInfo, speed: Float, list: List<Piece>) {
         val futures = HashMap<Int, Future<GeneratedAudio>>()
         fun fetch(i: Int) {
             if (i < list.size && i !in futures) futures[i] = PiperEngine.submit(app, voice, list[i].text, speed)

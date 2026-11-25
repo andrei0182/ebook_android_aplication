@@ -145,7 +145,7 @@ class VoicesActivity : AppCompatActivity() {
         val installed = PiperVoices.installed(this)
         val selected = PiperVoices.choose(installed, prefs.piperVoice, null)?.id
         piperAdapter.submit(PiperVoices.catalog.map { v ->
-            val d = downloads[v.id]
+            val d = downloads[v.model]
             val isInstalled = installed.any { it.id == v.id }
             val subtitle = when {
                 d?.error != null -> getString(R.string.piper_failed, d.error)
@@ -158,8 +158,8 @@ class VoicesActivity : AppCompatActivity() {
                 when {
                     isInstalled -> selectPiper(v)
                     d == null || d.error != null -> {
-                        PiperVoices.clearError(v.id)
-                        PiperVoices.download(this, v.id)
+                        PiperVoices.clearError(v.model)
+                        PiperVoices.download(this, v.model)
                     }
                 }
             }
@@ -172,9 +172,10 @@ class VoicesActivity : AppCompatActivity() {
         notifyService()
         showPiperVoices(PiperVoices.downloads.value)
         val sample = getString(if (v.language == "ro") R.string.piper_sample_ro else R.string.piper_sample_en)
+        val voice = v
         lifecycleScope.launch {
             val audio = withContext(Dispatchers.IO) {
-                runCatching { PiperEngine.submit(this@VoicesActivity, v.id, sample, prefs.speechRate).get() }
+                runCatching { PiperEngine.submit(this@VoicesActivity, voice, sample, prefs.speechRate).get() }
             }
             audio.onSuccess { playSamples(it.samples, it.sampleRate) }
                 .onFailure { Toast.makeText(this@VoicesActivity, getString(R.string.piper_error, it.cause?.message ?: it.message), Toast.LENGTH_LONG).show() }
@@ -204,8 +205,8 @@ class VoicesActivity : AppCompatActivity() {
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ ->
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) { PiperVoices.delete(this@VoicesActivity, v.id) }
-                    if (prefs.piperVoice == v.id) prefs.piperVoice = ""
+                    withContext(Dispatchers.IO) { PiperVoices.delete(this@VoicesActivity, v.model) }
+                    if (PiperVoices.voice(prefs.piperVoice)?.model == v.model) prefs.piperVoice = ""
                     notifyService()
                     showPiperVoices(PiperVoices.downloads.value)
                 }

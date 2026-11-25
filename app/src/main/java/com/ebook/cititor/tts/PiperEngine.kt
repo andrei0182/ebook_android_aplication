@@ -21,9 +21,11 @@ object PiperEngine {
     private var tts: OfflineTts? = null
     private var loadedId: String? = null
 
-    fun submit(ctx: Context, voiceId: String, text: String, speed: Float): Future<GeneratedAudio> {
+    fun submit(ctx: Context, voice: PiperVoices.VoiceInfo, text: String, speed: Float): Future<GeneratedAudio> {
         val app = ctx.applicationContext
-        return executor.submit<GeneratedAudio> { engine(app, voiceId).generate(text, 0, speed.coerceIn(0.5f, 3f)) }
+        return executor.submit<GeneratedAudio> {
+            engine(app, voice.model).generate(text, voice.speaker, speed.coerceIn(0.5f, 3f))
+        }
     }
 
     fun unload() {
