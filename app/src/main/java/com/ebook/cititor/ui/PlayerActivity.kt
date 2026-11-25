@@ -201,7 +201,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.speed.text = PlaybackDialogs.formatSpeed(prefs.speechRate)
         binding.voice.text = when (prefs.engine) {
             Prefs.ENGINE_ELEVEN -> prefs.elevenVoiceName.ifBlank { getString(R.string.voice_ai) }
-            Prefs.ENGINE_PIPER -> PiperVoices.catalog.firstOrNull { it.id == prefs.piperVoice }?.name
+            Prefs.ENGINE_PIPER -> PiperVoices.voice(prefs.piperVoice)?.name
                 ?: getString(R.string.voice_piper_short)
             else -> getString(R.string.voice_system_short)
         }

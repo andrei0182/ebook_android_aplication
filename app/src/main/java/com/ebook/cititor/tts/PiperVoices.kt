@@ -18,7 +18,19 @@ import java.net.URL
  */
 object PiperVoices {
 
-    data class VoiceInfo(val id: String, val name: String, val language: String, val languageLabel: String, val sizeMb: Int)
+    /**
+     * A selectable voice. Several voices can share one downloaded [model] file (multi-speaker
+     * models); [speaker] is the speaker id inside that model.
+     */
+    data class VoiceInfo(
+        val id: String,
+        val name: String,
+        val language: String,
+        val languageLabel: String,
+        val sizeMb: Int,
+        val model: String = id,
+        val speaker: Int = 0,
+    )
 
     data class Download(val progress: Int, val error: String? = null)
 
@@ -28,7 +40,17 @@ object PiperVoices {
         VoiceInfo("en_US-amy-medium", "Amy", "en", "Engleză (SUA)", 65),
         VoiceInfo("en_US-ryan-medium", "Ryan", "en", "Engleză (SUA)", 65),
         VoiceInfo("en_GB-alba-medium", "Alba", "en", "Engleză (UK)", 65),
+        // British male narrators
+        VoiceInfo("en_GB-alan-medium", "Alan", "en", "Engleză (UK) · bărbat", 65),
+        VoiceInfo("en_GB-northern_english_male-medium", "Northern English Male", "en", "Engleză (nordul Angliei) · bărbat", 65),
+        VoiceInfo("en_GB-semaine-medium#1", "Spike", "en", "Engleză (UK) · bărbat", 75, model = "en_GB-semaine-medium", speaker = 1),
+        VoiceInfo("en_GB-semaine-medium#2", "Obadiah", "en", "Engleză (UK) · bărbat", 75, model = "en_GB-semaine-medium", speaker = 2),
+        VoiceInfo("en_GB-vctk-medium#76", "Deep", "en", "Engleză (UK) · bărbat · VCTK", 75, model = "en_GB-vctk-medium", speaker = 76),
+        VoiceInfo("en_GB-vctk-medium#104", "Warm", "en", "Engleză (UK) · bărbat · VCTK", 75, model = "en_GB-vctk-medium", speaker = 104),
+        VoiceInfo("en_GB-vctk-medium#10", "Calm", "en", "Engleză (UK) · bărbat · VCTK", 75, model = "en_GB-vctk-medium", speaker = 10),
     )
+
+    fun voice(id: String): VoiceInfo? = catalog.firstOrNull { it.id == id }
 
     private const val BASE_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-"
     private const val ESPEAK = "espeak-ng-data"
@@ -41,10 +63,10 @@ object PiperVoices {
 
     class Paths(val model: String, val tokens: String, val dataDir: String)
 
-    fun paths(ctx: Context, id: String): Paths? = paths(root(ctx), id)
+    fun paths(ctx: Context, model: String): Paths? = paths(root(ctx), model)
 
-    fun paths(root: File, id: String): Paths? {
-        val dir = File(root, id)
+    fun paths(root: File, model: String): Paths? {
+        val dir = File(root, model)
         val espeak = File(root, ESPEAK)
         val model = dir.listFiles { f -> f.extension == "onnx" }?.firstOrNull() ?: return null
         val tokens = File(dir, "tokens.txt")
@@ -52,9 +74,12 @@ object PiperVoices {
         return Paths(model.absolutePath, tokens.absolutePath, espeak.absolutePath)
     }
 
-    fun isInstalled(ctx: Context, id: String) = paths(ctx, id) != null
+    fun isInstalled(ctx: Context, model: String) = paths(ctx, model) != null
 
-    fun installed(ctx: Context): List<VoiceInfo> = catalog.filter { isInstalled(ctx, it.id) }
+    fun installed(ctx: Context): List<VoiceInfo> {
+        val models = catalog.map { it.model }.distinct().filter { isInstalled(ctx, it) }.toSet()
+        return catalog.filter { it.model in models }
+    }
 
     /** Voice to use: the chosen one if it fits the book's language, else an installed voice for that language. */
     fun choose(installed: List<VoiceInfo>, preferred: String?, language: String?): VoiceInfo? {
@@ -66,13 +91,14 @@ object PiperVoices {
         return installed.firstOrNull { it.language == lang } ?: pref ?: installed.first()
     }
 
-    fun delete(ctx: Context, id: String) {
-        File(root(ctx), id).deleteRecursively()
+    /** Deletes a downloaded model (and with it every voice that uses it). */
+    fun delete(ctx: Context, model: String) {
+        File(root(ctx), model).deleteRecursively()
         PiperEngine.unload()
         if (installed(ctx).isEmpty()) File(root(ctx), ESPEAK).deleteRecursively()
     }
 
-    /** Starts downloading [id] in the background; progress is published in [downloads]. */
+    /** Starts downloading [id] (a model id) in the background; progress is published in [downloads]. */
     fun download(ctx: Context, id: String) {
         val current = _downloads.value[id]
         if (current != null && current.error == null) return

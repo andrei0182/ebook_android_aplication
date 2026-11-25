@@ -106,4 +106,30 @@ class PiperTest {
         assertEquals(3, PiperSpeaker.wordAtFraction(starts, 0.99))
         assertArrayEquals(DoubleArray(0), PiperSpeaker.wordStartFractions("  "), 0.0)
     }
+
+    @Test
+    fun catalogIsConsistent() {
+        val ids = PiperVoices.catalog.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+        // Voices sharing a model differ by speaker id, and single-speaker voices use speaker 0.
+        PiperVoices.catalog.groupBy { it.model }.forEach { (model, voices) ->
+            assertEquals(voices.size, voices.map { it.speaker }.toSet().size)
+            if (voices.size == 1 && !voices[0].id.contains('#')) assertEquals(0, voices[0].speaker)
+            assertTrue(model.matches(Regex("[a-z]{2}_[A-Z]{2}-[a-z_]+-(low|medium|high)")))
+        }
+        val vctk = PiperVoices.catalog.filter { it.model == "en_GB-vctk-medium" }
+        assertEquals(setOf(76, 104, 10), vctk.map { it.speaker }.toSet())
+        assertEquals("Deep", PiperVoices.voice("en_GB-vctk-medium#76")?.name)
+    }
+
+    @Test
+    fun choosesBritishMaleVoiceForEnglishBooks() {
+        val ro = PiperVoices.voice("ro_RO-mihai-medium")!!
+        val deep = PiperVoices.voice("en_GB-vctk-medium#76")!!
+        val calm = PiperVoices.voice("en_GB-vctk-medium#10")!!
+        val installed = listOf(ro, deep, calm)
+        assertEquals(calm, PiperVoices.choose(installed, calm.id, "en-GB"))
+        assertEquals(deep, PiperVoices.choose(installed, ro.id, "en"))
+        assertEquals(ro, PiperVoices.choose(installed, calm.id, "ro"))
+    }
 }
