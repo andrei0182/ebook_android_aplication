@@ -171,7 +171,11 @@ class TtsService : Service(), Speaker.Listener {
 
     private fun createSpeaker() {
         speakerEngine = prefs.engine
-        speaker = if (speakerEngine == Prefs.ENGINE_ELEVEN) ElevenLabsSpeaker(this, this) else SystemSpeaker(this, this)
+        speaker = when (speakerEngine) {
+            Prefs.ENGINE_ELEVEN -> ElevenLabsSpeaker(this, this)
+            Prefs.ENGINE_PIPER -> PiperSpeaker(this, this)
+            else -> SystemSpeaker(this, this)
+        }
         book?.let { speaker.setLanguage(it.language) }
     }
 

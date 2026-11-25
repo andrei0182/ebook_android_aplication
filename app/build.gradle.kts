@@ -11,8 +11,13 @@ android {
         applicationId = "com.ebook.cititor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.2"
+
+        // Phones only: keeps the native speech engine small.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -31,6 +36,13 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            // Only the JNI library and onnxruntime are needed.
+            excludes += listOf("**/libsherpa-onnx-c-api.so", "**/libsherpa-onnx-cxx-api.so")
+        }
+    }
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
@@ -47,6 +59,9 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.3")
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    // Offline neural TTS (Piper voices). Pinned: 2.x changed the Piper text frontend.
+    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.8")
+    implementation("org.apache.commons:commons-compress:1.27.1")
 }
 
 dependencies {

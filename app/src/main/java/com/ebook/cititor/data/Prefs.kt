@@ -12,6 +12,7 @@ class Prefs(ctx: Context) {
     companion object {
         const val ENGINE_SYSTEM = "system"
         const val ENGINE_ELEVEN = "eleven"
+        const val ENGINE_PIPER = "piper"
         const val MODEL_QUALITY = "eleven_multilingual_v2"
         const val MODEL_FAST = "eleven_flash_v2_5"
     }
@@ -38,7 +39,12 @@ class Prefs(ctx: Context) {
         get() = sp.getFloat("pitch", 1.0f)
         set(v) = sp.edit().putFloat("pitch", v).apply()
 
-    /** "system" = Android text-to-speech, "eleven" = ElevenLabs AI voices. */
+    /** Chosen Piper voice id (free offline neural voice). */
+    var piperVoice: String
+        get() = sp.getString("piperVoice", "") ?: ""
+        set(v) = sp.edit().putString("piperVoice", v).apply()
+
+    /** "system" = Android text-to-speech, "piper" = free neural voice, "eleven" = ElevenLabs AI voices. */
     var engine: String
         get() = sp.getString("engine", ENGINE_SYSTEM) ?: ENGINE_SYSTEM
         set(v) = sp.edit().putString("engine", v).apply()

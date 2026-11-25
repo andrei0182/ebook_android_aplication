@@ -23,6 +23,13 @@ import com.ebook.cititor.data.Prefs
 import com.ebook.cititor.databinding.ActivityVoicesBinding
 import com.ebook.cititor.databinding.ItemVoiceBinding
 import com.ebook.cititor.tts.ElevenLabsApi
+import com.ebook.cititor.tts.PiperEngine
+import com.ebook.cititor.tts.PiperVoices
+import android.media.AudioFormat
+import android.media.AudioTrack
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.ebook.cititor.tts.TtsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,6 +50,8 @@ class VoicesActivity : AppCompatActivity() {
     private var preview: MediaPlayer? = null
     private val systemAdapter = RowAdapter()
     private val elevenAdapter = RowAdapter()
+    private val piperAdapter = RowAdapter()
+    private var piperTrack: AudioTrack? = null
     private var elevenVoices: List<ElevenLabsApi.Voice> = emptyList()
     private var systemVoices: List<Voice> = emptyList()
 
@@ -59,6 +68,7 @@ class VoicesActivity : AppCompatActivity() {
             v.updatePadding(left = bars.left, top = bars.top, right = bars.right)
             binding.systemList.updatePadding(bottom = bars.bottom)
             binding.elevenList.updatePadding(bottom = bars.bottom)
+            binding.piperList.updatePadding(bottom = bars.bottom)
             insets
         }
 
@@ -66,16 +76,31 @@ class VoicesActivity : AppCompatActivity() {
         binding.systemList.adapter = systemAdapter
         binding.elevenList.layoutManager = LinearLayoutManager(this)
         binding.elevenList.adapter = elevenAdapter
+        binding.piperList.layoutManager = LinearLayoutManager(this)
+        binding.piperList.adapter = piperAdapter
 
-        val eleven = prefs.engine == Prefs.ENGINE_ELEVEN
-        binding.engine.check(if (eleven) R.id.engine_eleven else R.id.engine_system)
-        showPanel(eleven)
+        binding.engine.check(
+            when (prefs.engine) {
+                Prefs.ENGINE_ELEVEN -> R.id.engine_eleven
+                Prefs.ENGINE_PIPER -> R.id.engine_piper
+                else -> R.id.engine_system
+            }
+        )
+        showPanel(prefs.engine)
         binding.engine.addOnButtonCheckedListener { _, id, checked ->
             if (!checked) return@addOnButtonCheckedListener
-            val useEleven = id == R.id.engine_eleven
-            prefs.engine = if (useEleven) Prefs.ENGINE_ELEVEN else Prefs.ENGINE_SYSTEM
-            showPanel(useEleven)
+            prefs.engine = when (id) {
+                R.id.engine_eleven -> Prefs.ENGINE_ELEVEN
+                R.id.engine_piper -> Prefs.ENGINE_PIPER
+                else -> Prefs.ENGINE_SYSTEM
+            }
+            showPanel(prefs.engine)
             notifyService()
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                PiperVoices.downloads.collect { showPiperVoices(it) }
+            }
         }
 
         binding.installVoices.setOnClickListener {
@@ -102,14 +127,90 @@ class VoicesActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        piperTrack?.release()
         tts?.shutdown()
         preview?.release()
         super.onDestroy()
     }
 
-    private fun showPanel(eleven: Boolean) {
-        binding.systemPanel.isVisible = !eleven
-        binding.elevenPanel.isVisible = eleven
+    private fun showPanel(engine: String) {
+        binding.systemPanel.isVisible = engine == Prefs.ENGINE_SYSTEM
+        binding.piperPanel.isVisible = engine == Prefs.ENGINE_PIPER
+        binding.elevenPanel.isVisible = engine == Prefs.ENGINE_ELEVEN
+    }
+
+    // ---------------------------------------------------------------- Piper voices
+
+    private fun showPiperVoices(downloads: Map<String, PiperVoices.Download>) {
+        val installed = PiperVoices.installed(this)
+        val selected = PiperVoices.choose(installed, prefs.piperVoice, null)?.id
+        piperAdapter.submit(PiperVoices.catalog.map { v ->
+            val d = downloads[v.id]
+            val isInstalled = installed.any { it.id == v.id }
+            val subtitle = when {
+                d?.error != null -> getString(R.string.piper_failed, d.error)
+                d != null -> getString(R.string.piper_downloading, d.progress)
+                isInstalled -> getString(R.string.piper_installed)
+                else -> getString(R.string.piper_download, v.sizeMb)
+            }
+            Row("${v.name} · ${v.languageLabel}", subtitle, isInstalled && v.id == selected,
+                onLongClick = if (isInstalled) ({ confirmDeletePiper(v) }) else null) {
+                when {
+                    isInstalled -> selectPiper(v)
+                    d == null || d.error != null -> {
+                        PiperVoices.clearError(v.id)
+                        PiperVoices.download(this, v.id)
+                    }
+                }
+            }
+        })
+    }
+
+    private fun selectPiper(v: PiperVoices.VoiceInfo) {
+        prefs.piperVoice = v.id
+        prefs.engine = Prefs.ENGINE_PIPER
+        notifyService()
+        showPiperVoices(PiperVoices.downloads.value)
+        val sample = getString(if (v.language == "ro") R.string.piper_sample_ro else R.string.piper_sample_en)
+        lifecycleScope.launch {
+            val audio = withContext(Dispatchers.IO) {
+                runCatching { PiperEngine.submit(this@VoicesActivity, v.id, sample, prefs.speechRate).get() }
+            }
+            audio.onSuccess { playSamples(it.samples, it.sampleRate) }
+                .onFailure { Toast.makeText(this@VoicesActivity, getString(R.string.piper_error, it.cause?.message ?: it.message), Toast.LENGTH_LONG).show() }
+        }
+    }
+
+    private fun playSamples(samples: FloatArray, rate: Int) {
+        piperTrack?.release()
+        if (samples.isEmpty()) return
+        val t = AudioTrack.Builder()
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                .setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+            .setBufferSizeInBytes(samples.size * 4)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .build()
+        t.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+        t.play()
+        piperTrack = t
+    }
+
+    private fun confirmDeletePiper(v: PiperVoices.VoiceInfo) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.piper_delete_title, v.name))
+            .setMessage(R.string.piper_delete_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) { PiperVoices.delete(this@VoicesActivity, v.id) }
+                    if (prefs.piperVoice == v.id) prefs.piperVoice = ""
+                    notifyService()
+                    showPiperVoices(PiperVoices.downloads.value)
+                }
+            }
+            .show()
     }
 
     private fun notifyService() = TtsService.command(this, TtsService.ACTION_SETTINGS)
@@ -218,7 +319,13 @@ class VoicesActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- list
 
-    class Row(val title: String, val subtitle: String, val selected: Boolean, val onClick: () -> Unit)
+    class Row(
+        val title: String,
+        val subtitle: String,
+        val selected: Boolean,
+        val onLongClick: (() -> Unit)? = null,
+        val onClick: () -> Unit,
+    )
 
     private class RowAdapter : RecyclerView.Adapter<RowAdapter.H>() {
         private var rows: List<Row> = emptyList()
@@ -242,6 +349,7 @@ class VoicesActivity : AppCompatActivity() {
             h.b.subtitle.isVisible = r.subtitle.isNotBlank()
             h.b.check.isVisible = r.selected
             h.itemView.setOnClickListener { r.onClick() }
+            h.itemView.setOnLongClickListener(r.onLongClick?.let { f -> android.view.View.OnLongClickListener { f(); true } })
         }
     }
 }

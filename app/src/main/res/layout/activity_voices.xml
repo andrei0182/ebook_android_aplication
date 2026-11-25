@@ -29,6 +29,14 @@
             android:text="@string/voice_system" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/engine_piper"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/voice_piper" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/engine_eleven"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
@@ -63,6 +71,30 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/system_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false" />
+    </LinearLayout>
+
+    <!-- Piper voices -->
+    <LinearLayout
+        android:id="@+id/piper_panel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:text="@string/piper_hint"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/piper_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false" />

@@ -5,7 +5,10 @@ Aplicație Android pentru **ascultat** și **citit** cărți, documente și arti
 ## Funcții
 
 **Ascultare**
-- Două tipuri de voce: **vocea telefonului** (gratuită, merge offline) sau **voci AI ElevenLabs** (foarte naturale, inclusiv în română; necesită cheia ta API).
+- Trei tipuri de voce:
+  - **Naturală** (Piper): voci neurale **gratuite**, care rulează **pe telefon, fără internet**. Există în română (Mihai) și engleză (Lessac, Amy, Ryan, Alba). Se descarcă o singură dată (~65 MB per voce), iar cărțile în română/engleză primesc automat vocea potrivită.
+  - **Telefon**: motorul Text-to-Speech instalat (gratuit).
+  - **AI ElevenLabs**: cele mai expresive, dar necesită cheia ta API (cu plată).
 - **Evidențiere cuvânt cu cuvânt** în text, cu derulare automată, pentru ambele tipuri de voce.
 - **Ecran „Se redă”**: copertă mare, fundal colorat după copertă, textul curent cu cuvântul rostit evidențiat, bară de poziție în capitol, viteză (0,5x–3x), voce, sleep timer (inclusiv „la sfârșitul capitolului”).
 - **Mini-player** în bibliotecă; controale în notificare, pe ecranul de blocare și din căști; merge cu ecranul stins.
@@ -20,6 +23,10 @@ Aplicație Android pentru **ascultat** și **citit** cărți, documente și arti
 - Bibliotecă tip grilă cu coperți și progres; buton 🎧 pe fiecare carte pentru ascultare directă.
 - Cititor cu cuprins, mărime text, temă Luminos / Sepia / Întunecat, font cu sau fără serife.
 - Dublu-tap pe un paragraf pornește ascultarea de acolo.
+
+## Voci naturale gratuite (Piper)
+
+Voce → **Naturală** → atinge o voce pentru a o descărca, apoi atinge-o din nou pentru a o alege și a auzi o mostră. Ține apăsat pe o voce descărcată pentru a o șterge. Vocile rulează local cu [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (fixat la v1.13.8). Modelele Piper sunt descărcate din release-ul `tts-models` al sherpa-onnx.
 
 ## Voci AI ElevenLabs (opțional)
 
@@ -59,6 +66,7 @@ La fiecare push, GitHub Actions construiește APK-ul și îl publică ca artefac
 | `data/Library.kt` | Biblioteca și progresul |
 | `tts/TtsService.kt` | Serviciul de redare în fundal (notificare, MediaSession, sleep timer) |
 | `tts/SystemSpeaker.kt` | Vocea telefonului, cu poziție pe cuvânt |
+| `tts/PiperVoices.kt`, `tts/PiperEngine.kt`, `tts/PiperSpeaker.kt` | Voci naturale gratuite offline: descărcare, model, redare fără pauze |
 | `tts/ElevenLabsSpeaker.kt`, `tts/ElevenLabsApi.kt` | Voci AI ElevenLabs cu marcaje de timp pe caracter, cache local |
 | `ui/MainActivity.kt` | Biblioteca, importul, mini-player |
 | `ui/PlayerActivity.kt` | Ecranul „Se redă” |

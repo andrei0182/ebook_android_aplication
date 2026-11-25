@@ -28,6 +28,7 @@ import com.ebook.cititor.data.Prefs
 import com.ebook.cititor.databinding.ActivityPlayerBinding
 import com.ebook.cititor.epub.Paragraph
 import com.ebook.cititor.tts.PlaybackState
+import com.ebook.cititor.tts.PiperVoices
 import com.ebook.cititor.tts.TtsService
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.slider.Slider
@@ -198,9 +199,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updateChips() {
         binding.speed.text = PlaybackDialogs.formatSpeed(prefs.speechRate)
-        binding.voice.text = if (prefs.engine == Prefs.ENGINE_ELEVEN)
-            prefs.elevenVoiceName.ifBlank { getString(R.string.voice_ai) }
-        else getString(R.string.voice_system_short)
+        binding.voice.text = when (prefs.engine) {
+            Prefs.ENGINE_ELEVEN -> prefs.elevenVoiceName.ifBlank { getString(R.string.voice_ai) }
+            Prefs.ENGINE_PIPER -> PiperVoices.catalog.firstOrNull { it.id == prefs.piperVoice }?.name
+                ?: getString(R.string.voice_piper_short)
+            else -> getString(R.string.voice_system_short)
+        }
         val s = state
         binding.sleep.text = when {
             s.sleepAt == -1L -> getString(R.string.sleep_chapter_short)
