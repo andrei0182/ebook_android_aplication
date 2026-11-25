@@ -1,0 +1,58 @@
+name: Release APK
+
+# Publishes a release for the app version in app/build.gradle.kts (versionName) whenever main
+# changes. Bump versionName to publish a new release; pushes with an unchanged version update the
+# existing release's APK.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Build APK
+        run: ./gradlew assembleDebug
+      - name: Read app version
+        id: version
+        run: |
+          v=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          test -n "$v"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+      - name: Name APK after the version
+        run: cp app/build/outputs/apk/debug/app-debug.apk "CititorEpub-${{ steps.version.outputs.tag }}.apk"
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Cititor EPUB ${{ steps.version.outputs.tag }}
+          make_latest: true
+          files: CititorEpub-${{ steps.version.outputs.tag }}.apk
+          body: |
+            ## Descărcare
+            Descarcă fișierul **CititorEpub-${{ steps.version.outputs.tag }}.apk** de mai jos (la „Assets”) direct pe telefon, apoi deschide-l și apasă **Instalează**.
+            Dacă telefonul cere, permite „instalarea din surse necunoscute” pentru browser. Dacă Play Protect avertizează, alege „Instalează oricum”.
+            Necesită Android 8.0 sau mai nou.
+
+            ## Ce conține
+            - Ascultă cărți EPUB, PDF, TXT, articole web sau text lipit/partajat.
+            - **Voci naturale gratuite, fără internet** (Piper): română (Mihai) și engleză (Lessac, Amy, Ryan, Alba). Se descarcă din aplicație: Voce → Naturală.
+            - Vocea telefonului (gratuit) sau voci AI ElevenLabs (cu cheia ta API).
+            - Text evidențiat cuvânt cu cuvânt, ecran de player, viteză, sleep timer, mini-player, controale în notificare și din căști.
+            - Cititor cu cuprins, teme Luminos/Sepia/Întunecat și mărime text.
+
+            Aceasta este o versiune de test (semnată cu cheie de debug).
