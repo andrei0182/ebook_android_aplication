@@ -1,9 +1,13 @@
 name: Release APK
 
+# Publishes a release for the app version in app/build.gradle.kts (versionName) whenever main
+# changes. Bump versionName to publish a new release; pushes with an unchanged version update the
+# existing release's APK.
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,16 +26,25 @@ jobs:
         run: ./gradlew testDebugUnitTest
       - name: Build APK
         run: ./gradlew assembleDebug
-      - name: Name APK after the tag
-        run: cp app/build/outputs/apk/debug/app-debug.apk "CititorEpub-${GITHUB_REF_NAME}.apk"
+      - name: Read app version
+        id: version
+        run: |
+          v=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          test -n "$v"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+      - name: Name APK after the version
+        run: cp app/build/outputs/apk/debug/app-debug.apk "CititorEpub-${{ steps.version.outputs.tag }}.apk"
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          name: Cititor EPUB ${{ github.ref_name }}
-          files: CititorEpub-${{ github.ref_name }}.apk
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Cititor EPUB ${{ steps.version.outputs.tag }}
+          make_latest: true
+          files: CititorEpub-${{ steps.version.outputs.tag }}.apk
           body: |
             ## Descărcare
-            Descarcă fișierul **CititorEpub-${{ github.ref_name }}.apk** de mai jos (la „Assets”) direct pe telefon, apoi deschide-l și apasă **Instalează**.
+            Descarcă fișierul **CititorEpub-${{ steps.version.outputs.tag }}.apk** de mai jos (la „Assets”) direct pe telefon, apoi deschide-l și apasă **Instalează**.
             Dacă telefonul cere, permite „instalarea din surse necunoscute” pentru browser. Dacă Play Protect avertizează, alege „Instalează oricum”.
             Necesită Android 8.0 sau mai nou.
 
