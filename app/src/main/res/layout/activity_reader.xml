@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:subtitleTextAppearance="?attr/textAppearanceBodySmall" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/loading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="gone" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <WebView
+        android:id="@+id/web"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurfaceContainer"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingVertical="4dp">
+
+        <TextView
+            android:id="@+id/chapter_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceLabelSmall" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_player"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/now_playing"
+                android:src="@drawable/ic_headset" />
+
+            <ImageButton
+                android:id="@+id/btn_prev_chapter"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/prev_chapter"
+                android:src="@drawable/ic_skip_prev" />
+
+            <ImageButton
+                android:id="@+id/btn_rewind"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/previous"
+                android:src="@drawable/ic_rewind" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btn_play"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:contentDescription="@string/listen"
+                android:src="@drawable/ic_play"
+                app:fabSize="normal" />
+
+            <ImageButton
+                android:id="@+id/btn_forward"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/next"
+                android:src="@drawable/ic_forward" />
+
+            <ImageButton
+                android:id="@+id/btn_next_chapter"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/next_chapter"
+                android:src="@drawable/ic_skip_next" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

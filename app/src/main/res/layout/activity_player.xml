@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@android:color/transparent"
+        app:navigationIcon="@drawable/ic_expand_more"
+        app:title="@string/now_playing" />
+
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="4dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="8dp">
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:id="@+id/cover"
+                    android:layout_width="@dimen/player_cover_width"
+                    android:layout_height="@dimen/player_cover_height"
+                    android:importantForAccessibility="no"
+                    android:scaleType="centerCrop" />
+
+                <TextView
+                    android:id="@+id/cover_title"
+                    android:layout_width="@dimen/player_cover_width"
+                    android:layout_height="@dimen/player_cover_height"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:textAppearance="?attr/textAppearanceTitleLarge"
+                    android:textColor="@android:color/white" />
+            </FrameLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/book_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceTitleLarge" />
+
+    <TextView
+        android:id="@+id/chapter_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/text_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="12dp"
+        android:layout_weight="1"
+        android:fadingEdgeLength="24dp"
+        android:requiresFadingEdge="vertical">
+
+        <TextView
+            android:id="@+id/live_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingMultiplier="1.25"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textSize="19sp" />
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/position"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="12dp"
+        android:stepSize="1"
+        android:valueFrom="0"
+        android:valueTo="1"
+        app:labelBehavior="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="28dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/position_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAppearance="?attr/textAppearanceLabelMedium" />
+
+        <TextView
+            android:id="@+id/chapter_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceLabelMedium" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/prev_chapter"
+            style="@style/PlayerButton"
+            android:contentDescription="@string/prev_chapter"
+            android:src="@drawable/ic_skip_prev" />
+
+        <ImageButton
+            android:id="@+id/rewind"
+            style="@style/PlayerButton"
+            android:contentDescription="@string/previous"
+            android:src="@drawable/ic_rewind" />
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="12dp">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/play"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/play"
+                android:src="@drawable/ic_play"
+                app:fabCustomSize="72dp"
+                app:maxImageSize="36dp" />
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/loading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:visibility="gone"
+                app:indicatorSize="80dp"
+                app:trackThickness="3dp" />
+        </FrameLayout>
+
+        <ImageButton
+            android:id="@+id/forward"
+            style="@style/PlayerButton"
+            android:contentDescription="@string/next"
+            android:src="@drawable/ic_forward" />
+
+        <ImageButton
+            android:id="@+id/next_chapter"
+            style="@style/PlayerButton"
+            android:contentDescription="@string/next_chapter"
+            android:src="@drawable/ic_skip_next" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/chips"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/speed"
+            style="@style/PlayerChip"
+            app:icon="@drawable/ic_speed" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/voice"
+            style="@style/PlayerChip"
+            android:maxWidth="160dp"
+            app:icon="@drawable/ic_voice" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/sleep"
+            style="@style/PlayerChip"
+            app:icon="@drawable/ic_bedtime" />
+    </LinearLayout>
+</LinearLayout>

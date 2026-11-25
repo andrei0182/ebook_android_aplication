@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_toc" android:title="@string/toc"
+        android:icon="@drawable/ic_toc" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_settings" android:title="@string/settings"
+        android:icon="@drawable/ic_text" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_voice" android:title="@string/voice"
+        app:showAsAction="never" />
+    <item android:id="@+id/action_sleep" android:title="@string/sleep_timer"
+        app:showAsAction="never" />
+    <item android:id="@+id/action_stop_audio" android:title="@string/stop_audio"
+        app:showAsAction="never" />
+</menu>

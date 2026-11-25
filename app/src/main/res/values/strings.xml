@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cititor EPUB</string>
+    <string name="library">Biblioteca mea</string>
+    <string name="add_book">Adaugă carte</string>
+    <string name="empty_library">Biblioteca e goală.\nAdaugă o carte EPUB, un PDF, un fișier text sau un articol de pe internet și ascultă-l cu voce naturală.</string>
+    <string name="unknown_author">Autor necunoscut</string>
+    <string name="chapter_of">%1$d / %2$d</string>
+    <string name="import_failed">Importul nu a reușit: %s</string>
+    <string name="delete_title">Ștergi cartea?</string>
+    <string name="delete_message">„%s” va fi ștearsă din bibliotecă.</string>
+    <string name="delete">Șterge</string>
+    <string name="cancel">Anulează</string>
+    <string name="close">Închide</string>
+    <string name="book_missing">Cartea nu mai există.</string>
+    <string name="open_failed">Cartea nu poate fi deschisă: %s</string>
+    <string name="toc">Cuprins</string>
+    <string name="settings">Setări</string>
+    <string name="sleep_timer">Oprire automată</string>
+    <string name="sleep_remaining">Oprire automată în %d min</string>
+    <string name="stop_audio">Oprește audio</string>
+    <string name="listen">Ascultă</string>
+    <string name="play">Redă</string>
+    <string name="pause">Pauză</string>
+    <string name="stop">Oprește</string>
+    <string name="next">Înainte</string>
+    <string name="previous">Înapoi</string>
+    <string name="prev_chapter">Capitolul anterior</string>
+    <string name="next_chapter">Capitolul următor</string>
+    <string name="preparing">Se pregătește…</string>
+    <string name="channel_playback">Redare audio</string>
+    <string name="text_size">Mărime text</string>
+    <string name="theme">Temă</string>
+    <string name="theme_light">Luminos</string>
+    <string name="theme_sepia">Sepia</string>
+    <string name="theme_dark">Întunecat</string>
+    <string name="serif_font">Font cu serife</string>
+    <string name="reading_section">Citire</string>
+    <string name="listening_section">Ascultare</string>
+    <string name="speech_rate">Viteză voce</string>
+    <string name="speech_pitch">Ton voce</string>
+    <string name="tts_system">Voce și limbă (setări sistem)</string>
+    <string name="tts_settings_missing">Setările Text-to-Speech nu pot fi deschise pe acest dispozitiv.</string>
+    <string name="reader_hint">Atinge textul pentru a ascunde/arăta meniurile. Atinge de două ori un paragraf pentru a asculta de acolo. Vocea (telefon sau AI) se alege din meniu → Voce.</string>
+    <string-array name="sleep_options">
+        <item>Dezactivat</item>
+        <item>La sfârșitul capitolului</item>
+        <item>10 minute</item>
+        <item>15 minute</item>
+        <item>30 minute</item>
+        <item>45 minute</item>
+        <item>60 minute</item>
+        <item>90 minute</item>
+    </string-array>
+    <string name="add">Adaugă</string>
+    <string name="add_title">Ce vrei să asculți?</string>
+    <string name="add_file">Fișier (EPUB, PDF, TXT)</string>
+    <string name="add_link">Link către un articol</string>
+    <string name="add_text">Lipește text</string>
+    <string name="link_hint">https://…</string>
+    <string name="text_hint">Lipește aici textul</string>
+    <string name="invalid_link">Linkul nu este valid.</string>
+    <string name="badge_text">TEXT</string>
+    <string name="read">Citește</string>
+    <string name="now_playing">Se redă</string>
+    <string name="nothing_playing">Nu se redă nimic</string>
+    <string name="open_text">Deschide textul</string>
+    <string name="paragraph_of">Paragraful %1$d / %2$d</string>
+    <string name="chapter_short">Cap. %1$d / %2$d</string>
+    <string name="voice">Voce</string>
+    <string name="voice_system">Telefon</string>
+    <string name="voice_system_short">Voce telefon</string>
+    <string name="voice_ai">Voce AI</string>
+    <string name="voice_piper">Naturală</string>
+    <string name="voice_piper_short">Voce naturală</string>
+    <string name="piper_hint">Voci neurale naturale, gratuite, care rulează direct pe telefon, fără internet. Descarci o voce o singură dată (~65 MB); cărțile în română folosesc automat vocea română, iar cele în engleză o voce engleză. Atinge o voce descărcată pentru a o alege și a auzi o mostră; ține apăsat pentru a o șterge.</string>
+    <string name="piper_download">Descarcă (≈ %d MB)</string>
+    <string name="piper_downloading">Se descarcă… %d%%</string>
+    <string name="piper_installed">Descărcată</string>
+    <string name="piper_failed">Descărcarea a eșuat: %s. Atinge pentru a reîncerca.</string>
+    <string name="piper_need_voice">Descarcă mai întâi o voce naturală: Voce → Naturală.</string>
+    <string name="piper_error">Eroare la vocea naturală: %s</string>
+    <string name="piper_delete_title">Ștergi vocea %s?</string>
+    <string name="piper_delete_message">Fișierele vocii vor fi șterse de pe telefon. O poți descărca din nou oricând.</string>
+    <string name="piper_sample_ro">Bună! Eu sunt vocea care îți va citi cărțile, gratuit și fără internet.</string>
+    <string name="piper_sample_en">Hello! I am the voice that will read your books, for free and without internet.</string>
+    <string name="voice_auto">Automat</string>
+    <string name="voice_auto_hint">Alege vocea după limba cărții</string>
+    <string name="voice_system_hint">Gratuit, funcționează și fără internet. Pentru voci mai naturale, instalează vocile de „calitate foarte mare” din setările Text-to-Speech ale telefonului.</string>
+    <string name="quality_very_high">Calitate foarte mare</string>
+    <string name="quality_high">Calitate mare</string>
+    <string name="quality_normal">Calitate normală</string>
+    <string name="needs_internet">necesită internet</string>
+    <string name="tts_unavailable">Motorul Text-to-Speech nu este disponibil pe acest telefon.</string>
+    <string name="eleven_hint">Voci AI foarte naturale (inclusiv în română) prin ElevenLabs. Ai nevoie de un cont ElevenLabs și de o cheie API — atinge aici pentru a o crea. Fiecare caracter citit consumă credite din contul tău; audio-ul generat se păstrează pe telefon, deci recitirea nu costă din nou.</string>
+    <string name="eleven_key">Cheie API ElevenLabs</string>
+    <string name="eleven_load">Încarcă</string>
+    <string name="eleven_need_key">Introdu mai întâi cheia API.</string>
+    <string name="eleven_network_error">Nu m-am putut conecta la ElevenLabs. Verifică internetul.</string>
+    <string name="model_quality">Calitate maximă (Multilingual v2)</string>
+    <string name="model_fast">Rapid, cost redus (Flash v2.5)</string>
+    <string name="sleep_short">Timer</string>
+    <string name="sleep_chapter_short">Fin. cap.</string>
+    <string name="minutes_short">%d min</string>
+    <string name="sleep_end_chapter_active">Oprire la sfârșitul capitolului</string>
+
+</resources>
