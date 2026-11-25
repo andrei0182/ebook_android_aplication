@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="12dp"
+        android:text="@string/add_title"
+        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+    <TextView android:id="@+id/add_file" style="@style/SheetItem"
+        android:drawableStart="@drawable/ic_file" android:text="@string/add_file" />
+    <TextView android:id="@+id/add_link" style="@style/SheetItem"
+        android:drawableStart="@drawable/ic_link" android:text="@string/add_link" />
+    <TextView android:id="@+id/add_text" style="@style/SheetItem"
+        android:drawableStart="@drawable/ic_paste" android:text="@string/add_text" />
+</LinearLayout>

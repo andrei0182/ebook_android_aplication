@@ -32,4 +32,29 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
     </style>
+    <style name="PlayerButton">
+        <item name="android:layout_width">56dp</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">center</item>
+        <item name="tint">?attr/colorOnSurface</item>
+    </style>
+    <style name="PlayerChip" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="iconSize">18dp</item>
+    </style>
+    <style name="SheetItem">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingHorizontal">24dp</item>
+        <item name="android:drawablePadding">20dp</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyLarge</item>
+        <item name="drawableTint">?attr/colorOnSurfaceVariant</item>
+    </style>
 </resources>

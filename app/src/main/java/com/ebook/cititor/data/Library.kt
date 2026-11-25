@@ -20,6 +20,7 @@ data class BookEntry(
     val chapter: Int = 0,
     val paragraph: Int = 0,
     val lastOpened: Long = System.currentTimeMillis(),
+    val kind: SourceKind = SourceKind.EPUB,
 )
 
 /** Stores the imported books and the reading position of each one (JSON file in app storage). */
@@ -65,16 +66,21 @@ object Library {
         }
     }
 
-    /** Copies the EPUB into app storage, validates it and adds it to the library. Call off the main thread. */
-    fun import(ctx: Context, uri: Uri): BookEntry {
+    /** Imports an EPUB, PDF or text file. Call off the main thread. */
+    fun import(ctx: Context, uri: Uri): BookEntry = add(ctx) { dest -> Importer.fromUri(ctx, uri, dest) }
+
+    /** Imports a web article as a book. Call off the main thread. */
+    fun importUrl(ctx: Context, url: String): BookEntry = add(ctx) { dest -> Importer.fromUrl(url, dest) }
+
+    /** Imports pasted or shared text. Call off the main thread. */
+    fun importText(ctx: Context, text: String): BookEntry = add(ctx) { dest -> Importer.fromText(text, dest) }
+
+    private fun add(ctx: Context, produce: (File) -> Importer.Result): BookEntry {
         val id = UUID.randomUUID().toString()
         val dir = File(ctx.filesDir, "books").apply { mkdirs() }
         val dest = File(dir, "$id.epub")
-        ctx.contentResolver.openInputStream(uri).use { input ->
-            requireNotNull(input) { "Fișierul nu poate fi deschis" }
-            dest.outputStream().use { input.copyTo(it) }
-        }
         try {
+            val res = produce(dest)
             EpubBook.open(dest).use { book ->
                 var cover: String? = null
                 book.coverPath?.let { cp ->
@@ -88,8 +94,8 @@ object Library {
                         }
                     }
                 }
-                val title = book.title.ifBlank { uri.lastPathSegment?.substringAfterLast('/') ?: "Carte fără titlu" }
-                val entry = BookEntry(id, title, book.author, dest.absolutePath, cover, book.spine.size)
+                val title = book.title.ifBlank { res.fallbackTitle }
+                val entry = BookEntry(id, title, book.author, dest.absolutePath, cover, book.spine.size, kind = res.kind)
                 synchronized(this) {
                     load(ctx).add(entry); save(ctx)
                 }
@@ -128,6 +134,7 @@ object Library {
                         chapter = o.optInt("chapter"),
                         paragraph = o.optInt("paragraph"),
                         lastOpened = o.optLong("lastOpened"),
+                        kind = runCatching { SourceKind.valueOf(o.optString("kind", "EPUB")) }.getOrDefault(SourceKind.EPUB),
                     )
                 )
             }
@@ -144,6 +151,7 @@ object Library {
                 put("file", e.filePath); put("cover", e.coverPath ?: "")
                 put("chapters", e.chapterCount); put("chapter", e.chapter)
                 put("paragraph", e.paragraph); put("lastOpened", e.lastOpened)
+                put("kind", e.kind.name)
             })
         }
         val tmp = File(ctx.filesDir, "library.json.tmp")

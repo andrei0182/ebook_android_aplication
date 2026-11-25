@@ -31,6 +31,9 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -42,8 +45,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.media:media:1.7.0")
     implementation("org.jsoup:jsoup:1.18.3")
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

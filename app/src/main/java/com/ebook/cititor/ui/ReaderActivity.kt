@@ -169,7 +169,7 @@ class ReaderActivity : AppCompatActivity() {
                 pageReady = true
                 val s = lastState
                 if (s.active && s.bookId == bookId && s.chapter == chapter) {
-                    view.evaluateJavascript("__hl(${s.paragraph}, true)", null)
+                    view.evaluateJavascript("__hl(${s.paragraph}, ${s.word}, true)", null)
                 } else {
                     view.evaluateJavascript("__goto($pendingParagraph)", null)
                 }
@@ -209,6 +209,8 @@ class ReaderActivity : AppCompatActivity() {
             img, svg, video { max-width: 100% !important; height: auto !important; }
             pre { white-space: pre-wrap; }
             body .__tts, body .__tts * { background-color: ${t.highlight} !important; border-radius: 4px; }
+            body .__tts .__wd, body .__wd { background-color: ${t.word} !important; border-radius: 3px;
+                   box-shadow: 0 0 0 2px ${t.word}; }
         """.trimIndent()
     }
 
@@ -299,6 +301,14 @@ class ReaderActivity : AppCompatActivity() {
             if (isSpeakingThisBook()) TtsService.command(this, TtsService.ACTION_NEXT)
             else binding.web.evaluateJavascript("__page(1)", null)
         }
+        binding.btnPlayer.setOnClickListener {
+            if (!isSpeakingThisBook()) {
+                binding.web.evaluateJavascript("__first()") { v ->
+                    startListening(chapter, v.toIntOrNull() ?: 0)
+                    startActivity(Intent(this, PlayerActivity::class.java))
+                }
+            } else startActivity(Intent(this, PlayerActivity::class.java))
+        }
         binding.btnPlay.setOnClickListener {
             val s = lastState
             if (s.active && s.bookId == bookId) {
@@ -326,23 +336,23 @@ class ReaderActivity : AppCompatActivity() {
     private fun onPlaybackState(s: PlaybackState) {
         val prev = lastState
         lastState = s
-        s.error?.let { if (it != prev.error) Toast.makeText(this, it, Toast.LENGTH_LONG).show() }
+        if (s.errorSeq != prev.errorSeq && s.error != null) Toast.makeText(this, s.error, Toast.LENGTH_LONG).show()
         val mine = s.active && s.bookId == bookId
         binding.btnPlay.setImageResource(
-            if (mine && s.playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            if (mine && s.playing) R.drawable.ic_pause else R.drawable.ic_play
         )
         binding.btnPlay.contentDescription = getString(if (mine && s.playing) R.string.pause else R.string.listen)
         binding.loading.isVisible = mine && s.loading
         invalidateOptionsMenu()
         if (!mine) {
-            if (prev.active && prev.bookId == bookId && pageReady) binding.web.evaluateJavascript("__hl(-1, false)", null)
+            if (prev.active && prev.bookId == bookId && pageReady) binding.web.evaluateJavascript("__hl(-1, -1, false)", null)
             return
         }
         if (s.loading) return
         if (s.chapter != chapter && book != null) {
             showChapter(s.chapter, s.paragraph)
-        } else if (pageReady) {
-            binding.web.evaluateJavascript("__hl(${s.paragraph}, true)", null)
+        } else if (pageReady && (s.paragraph != prev.paragraph || s.word != prev.word || s.chapter != prev.chapter || !prev.active)) {
+            binding.web.evaluateJavascript("__hl(${s.paragraph}, ${s.word}, true)", null)
         }
     }
 
@@ -365,7 +375,10 @@ class ReaderActivity : AppCompatActivity() {
             android.R.id.home -> finish()
             R.id.action_toc -> showToc()
             R.id.action_settings -> showSettings()
-            R.id.action_sleep -> showSleep()
+            R.id.action_sleep -> PlaybackDialogs.sleep(this)
+            R.id.action_voice -> startActivity(
+                Intent(this, VoicesActivity::class.java).putExtra(VoicesActivity.EXTRA_LANGUAGE, book?.language)
+            )
             R.id.action_stop_audio -> TtsService.command(this, TtsService.ACTION_STOP)
             else -> return super.onOptionsItemSelected(item)
         }
@@ -385,20 +398,6 @@ class ReaderActivity : AppCompatActivity() {
                 if (isSpeakingThisBook()) TtsService.play(this, bookId, idx, 0) else showChapter(idx, 0)
             }
             .setNegativeButton(R.string.close, null)
-            .show()
-    }
-
-    private fun showSleep() {
-        val labels = resources.getStringArray(R.array.sleep_options)
-        val minutes = intArrayOf(0, 10, 15, 30, 45, 60, 90)
-        val remaining = if (lastState.sleepAt > 0)
-            getString(R.string.sleep_remaining, ((lastState.sleepAt - System.currentTimeMillis()) / 60000 + 1).toInt())
-        else null
-        MaterialAlertDialogBuilder(this)
-            .setTitle(remaining ?: getString(R.string.sleep_timer))
-            .setItems(labels) { _, which ->
-                TtsService.command(this, TtsService.ACTION_SLEEP, Bundle().apply { putInt(TtsService.EXTRA_MINUTES, minutes[which]) })
-            }
             .show()
     }
 
@@ -476,16 +475,28 @@ private const val JS = """
 (function(){
   var cur = -1;
   function el(i){ return document.querySelector('[data-tts="'+i+'"]'); }
-  window.__hl = function(i, scroll){
-    if (cur >= 0) { var o = el(cur); if (o) o.classList.remove('__tts'); }
+  var curWords = [];
+  window.__hl = function(i, w, scroll){
+    if (cur >= 0 && cur !== i) { var o = el(cur); if (o) o.classList.remove('__tts'); }
+    for (var k = 0; k < curWords.length; k++) curWords[k].classList.remove('__wd');
+    curWords = [];
     cur = i;
     if (i < 0) return;
     var e = el(i);
     if (!e) return;
     e.classList.add('__tts');
+    var target = e;
+    if (w >= 0) {
+      var ws = e.querySelectorAll('[data-w="'+w+'"]');
+      for (var k = 0; k < ws.length; k++) { ws[k].classList.add('__wd'); curWords.push(ws[k]); }
+      if (ws.length) target = ws[0];
+    }
     if (scroll) {
-      var r = e.getBoundingClientRect();
-      if (r.top < 0 || r.bottom > window.innerHeight * 0.85) e.scrollIntoView({block:'center', behavior:'smooth'});
+      var r = target.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.08 || r.bottom > window.innerHeight * 0.85) {
+        if (target === e && r.height > window.innerHeight * 0.7 && r.top < 0) return;
+        target.scrollIntoView({block:'center', behavior:'smooth'});
+      }
     }
   };
   window.__first = function(){

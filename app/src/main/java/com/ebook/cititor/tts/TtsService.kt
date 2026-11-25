@@ -11,6 +11,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -20,8 +22,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -32,11 +32,11 @@ import com.ebook.cititor.R
 import com.ebook.cititor.data.Library
 import com.ebook.cititor.data.Prefs
 import com.ebook.cititor.epub.EpubBook
-import com.ebook.cititor.ui.ReaderActivity
+import com.ebook.cititor.epub.Paragraph
+import com.ebook.cititor.ui.PlayerActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
-import java.util.Locale
 import java.util.concurrent.Executors
 
 data class PlaybackState(
@@ -44,17 +44,27 @@ data class PlaybackState(
     val playing: Boolean = false,
     val loading: Boolean = false,
     val bookId: String? = null,
+    val bookTitle: String = "",
+    val author: String = "",
+    val coverPath: String? = null,
     val chapter: Int = 0,
+    val chapterCount: Int = 0,
+    val chapterTitle: String = "",
     val paragraph: Int = 0,
+    val paragraphCount: Int = 0,
+    val word: Int = -1,
+    val text: Paragraph? = null,
     val sleepAt: Long = 0L,
+    val engine: String = Prefs.ENGINE_SYSTEM,
     val error: String? = null,
+    val errorSeq: Int = 0,
 )
 
 /**
- * Foreground service that reads a book aloud with Android's TextToSpeech engine, so listening
+ * Foreground service that reads a book aloud (Android TTS or ElevenLabs AI voices), so listening
  * continues with the screen off or while using other apps.
  */
-class TtsService : Service() {
+class TtsService : Service(), Speaker.Listener {
 
     companion object {
         const val ACTION_PLAY = "com.ebook.cititor.PLAY"       // book_id, chapter, paragraph
@@ -65,18 +75,20 @@ class TtsService : Service() {
         const val ACTION_PREV = "com.ebook.cititor.PREV"
         const val ACTION_STOP = "com.ebook.cititor.STOP"
         const val ACTION_SETTINGS = "com.ebook.cititor.SETTINGS"
-        const val ACTION_SLEEP = "com.ebook.cititor.SLEEP"     // minutes (0 = off)
+        const val ACTION_SLEEP = "com.ebook.cititor.SLEEP"     // minutes (0 = off, -1 = end of chapter)
 
         const val EXTRA_BOOK = "book_id"
         const val EXTRA_CHAPTER = "chapter"
         const val EXTRA_PARAGRAPH = "paragraph"
         const val EXTRA_MINUTES = "minutes"
+        const val SLEEP_END_OF_CHAPTER = -1
 
         private const val CHANNEL = "playback"
         private const val NOTIF_ID = 42
 
         private val _state = MutableStateFlow(PlaybackState())
         val state: StateFlow<PlaybackState> = _state
+        private var errorSeq = 0
 
         fun play(ctx: Context, bookId: String, chapter: Int, paragraph: Int) {
             val i = Intent(ctx, TtsService::class.java).setAction(ACTION_PLAY)
@@ -85,7 +97,7 @@ class TtsService : Service() {
         }
 
         fun command(ctx: Context, action: String, extras: Bundle? = null) {
-            if (!_state.value.active && action != ACTION_PLAY) return
+            if (!_state.value.active) return
             val i = Intent(ctx, TtsService::class.java).setAction(action)
             extras?.let { i.putExtras(it) }
             ctx.startService(i)
@@ -95,24 +107,30 @@ class TtsService : Service() {
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private lateinit var prefs: Prefs
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-    private var pendingStart: (() -> Unit)? = null
+    private lateinit var speaker: Speaker
+    private var speakerEngine = ""
 
     private var book: EpubBook? = null
     private var bookId: String? = null
     private var bookTitle = ""
+    private var author = ""
+    private var coverPath: String? = null
+    private var coverBitmap: Bitmap? = null
     private var chapter = 0
-    private var paragraphs: List<String> = emptyList()
+    private var paragraphs: List<Paragraph> = emptyList()
     private var paragraph = 0
+    private var word = -1
     private var playing = false
-    private var generation = 0
+    private var loading = false
+    private var loadGeneration = 0
+    private var lastNotifiedKey = ""
 
     private lateinit var session: MediaSessionCompat
     private lateinit var audioManager: AudioManager
     private var focusRequest: AudioFocusRequest? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var sleepAt = 0L
+    private var sleepEndOfChapter = false
     private val sleepRunnable = Runnable { sleepAt = 0; pause() }
     private var noisyRegistered = false
 
@@ -145,31 +163,16 @@ class TtsService : Service() {
                 override fun onRewind() = skip(-1)
                 override fun onStop() = stopAll()
             })
+            setSessionActivity(openPlayerIntent())
             isActive = true
         }
-        initTts()
+        createSpeaker()
     }
 
-    private fun initTts() {
-        tts = TextToSpeech(this) { status ->
-            main.post {
-                if (status == TextToSpeech.SUCCESS) {
-                    ttsReady = true
-                    tts?.setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build()
-                    )
-                    tts?.setOnUtteranceProgressListener(progressListener)
-                    pendingStart?.invoke()
-                    pendingStart = null
-                } else {
-                    publish(error = "Motorul Text-to-Speech nu este disponibil. Instalează „Google Text-to-Speech” din Magazin Play.")
-                    stopAll()
-                }
-            }
-        }
+    private fun createSpeaker() {
+        speakerEngine = prefs.engine
+        speaker = if (speakerEngine == Prefs.ENGINE_ELEVEN) ElevenLabsSpeaker(this, this) else SystemSpeaker(this, this)
+        book?.let { speaker.setLanguage(it.language) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -178,10 +181,7 @@ class TtsService : Service() {
         when (intent?.action) {
             ACTION_PLAY -> {
                 val id = intent.getStringExtra(EXTRA_BOOK) ?: return START_NOT_STICKY
-                val ch = intent.getIntExtra(EXTRA_CHAPTER, 0)
-                val p = intent.getIntExtra(EXTRA_PARAGRAPH, 0)
-                val start = { startBook(id, ch, p) }
-                if (ttsReady) start() else pendingStart = start
+                startBook(id, intent.getIntExtra(EXTRA_CHAPTER, 0), intent.getIntExtra(EXTRA_PARAGRAPH, 0))
             }
             ACTION_TOGGLE -> if (playing) pause() else resume()
             ACTION_PAUSE -> pause()
@@ -189,7 +189,7 @@ class TtsService : Service() {
             ACTION_NEXT -> skip(1)
             ACTION_PREV -> skip(-1)
             ACTION_STOP -> stopAll()
-            ACTION_SETTINGS -> if (playing) speakFrom(paragraph)
+            ACTION_SETTINGS -> onSettingsChanged()
             ACTION_SLEEP -> setSleep(intent.getIntExtra(EXTRA_MINUTES, 0))
             null -> if (bookId == null) stopAll()
         }
@@ -199,183 +199,184 @@ class TtsService : Service() {
     // ------------------------------------------------------------------ playback
 
     private fun startBook(id: String, ch: Int, p: Int) {
+        if (prefs.engine != speakerEngine) {
+            speaker.release(); createSpeaker()
+        }
         if (id == bookId && book != null) {
-            if (ch == chapter) {
-                paragraph = p.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
-                playing = true
+            if (ch == chapter && !loading && paragraphs.isNotEmpty()) {
+                paragraph = p.coerceIn(0, paragraphs.size - 1)
                 speakFrom(paragraph)
-            } else {
-                loadChapter(ch, p, autoplay = true)
-            }
+            } else loadChapter(ch, p, autoplay = true)
             return
         }
         val entry = Library.get(this, id)
         if (entry == null) {
-            publish(error = "Cartea nu a fost găsită"); stopAll(); return
+            fail("Cartea nu a fost găsită"); stopAll(); return
         }
-        tts?.stop()
-        generation++
-        publish(loading = true)
+        speaker.stop()
+        playing = false
+        loading = true
+        val gen = ++loadGeneration
+        bookId = id
+        bookTitle = entry.title
+        author = entry.author
+        coverPath = entry.coverPath
+        coverBitmap = entry.coverPath?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() }
+        publish()
         io.execute {
             val opened = runCatching { EpubBook.open(File(entry.filePath)) }
             main.post {
+                if (gen != loadGeneration) { opened.getOrNull()?.close(); return@post }
                 opened.onSuccess { b ->
                     book?.close()
                     book = b
-                    bookId = id
-                    bookTitle = entry.title
-                    applyLanguage(b.language)
+                    speaker.setLanguage(b.language)
                     loadChapter(ch, p, autoplay = true)
                 }.onFailure {
-                    publish(error = "Cartea nu poate fi deschisă: ${it.message}")
+                    fail("Cartea nu poate fi deschisă: ${it.message}")
                     stopAll()
                 }
             }
         }
     }
 
-    private fun applyLanguage(lang: String?) {
-        val engine = tts ?: return
-        if (lang.isNullOrBlank()) return
-        val locale = Locale.forLanguageTag(lang)
-        val res = engine.isLanguageAvailable(locale)
-        if (res >= TextToSpeech.LANG_AVAILABLE) engine.language = locale
-    }
-
     private fun loadChapter(ch: Int, p: Int, autoplay: Boolean) {
         val b = book ?: return
         if (ch !in b.spine.indices) {
             // End of the book.
+            speaker.stop()
             playing = false
+            loading = false
             paragraph = 0
+            word = -1
+            releaseWake()
             abandonFocus()
             publish()
             return
         }
-        tts?.stop()
-        val gen = ++generation
-        publish(loading = true)
+        speaker.stop()
+        val gen = ++loadGeneration
+        loading = true
+        publish()
         io.execute {
             val paras = runCatching { b.loadChapter(ch).paragraphs }.getOrDefault(emptyList())
             main.post {
-                if (gen != generation) return@post
+                if (gen != loadGeneration) return@post
+                loading = false
                 chapter = ch
                 paragraphs = paras
                 paragraph = p.coerceIn(0, (paras.size - 1).coerceAtLeast(0))
-                bookId?.let { Library.updateProgress(this, it, chapter, paragraph) }
+                word = -1
+                saveProgress()
                 if (paras.isEmpty()) {
                     // Image-only or empty section: move on.
                     if (autoplay) loadChapter(ch + 1, 0, true) else publish()
                     return@post
                 }
-                if (autoplay) {
-                    playing = true
-                    speakFrom(paragraph)
-                } else publish()
+                if (autoplay) speakFrom(paragraph) else publish()
             }
         }
     }
 
-    /** Queues all remaining paragraphs of the chapter, so speech is gapless. */
     private fun speakFrom(start: Int) {
-        val engine = tts ?: return
         if (!requestFocus()) {
             playing = false; publish(); return
         }
         registerNoisy()
         acquireWake()
-        engine.stop()
-        val gen = ++generation
-        engine.setSpeechRate(prefs.speechRate)
-        engine.setPitch(prefs.speechPitch)
-        val maxLen = (TextToSpeech.getMaxSpeechInputLength() - 100).coerceAtLeast(500)
-        var first = true
-        for (i in start until paragraphs.size) {
-            val chunks = splitText(paragraphs[i], maxLen)
-            chunks.forEachIndexed { k, chunk ->
-                val last = i == paragraphs.size - 1 && k == chunks.size - 1
-                val uid = "$gen:$i:$k:${if (last) 1 else 0}"
-                engine.speak(chunk, if (first) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, uid)
-                first = false
-            }
-            // Small pause between paragraphs.
-            engine.playSilentUtterance(250, TextToSpeech.QUEUE_ADD, "$gen:s:0:0")
-        }
         paragraph = start
+        word = -1
         playing = true
+        speaker.speak(paragraphs, start)
         publish()
     }
 
-    private val progressListener = object : UtteranceProgressListener() {
-        override fun onStart(utteranceId: String?) {
-            val parts = utteranceId?.split(':') ?: return
-            if (parts.size < 4 || parts[1] == "s") return
-            val gen = parts[0].toIntOrNull() ?: return
-            val p = parts[1].toIntOrNull() ?: return
-            main.post {
-                if (gen != generation || !playing) return@post
-                if (p != paragraph) {
-                    paragraph = p
-                    bookId?.let { Library.updateProgress(this@TtsService, it, chapter, paragraph) }
-                    publish()
-                }
-            }
+    // Speaker.Listener ---------------------------------------------------------
+
+    override fun onParagraph(index: Int) {
+        if (!playing) return
+        if (index != paragraph) {
+            paragraph = index
+            word = -1
+            saveProgress()
+            publish()
         }
+    }
 
-        override fun onDone(utteranceId: String?) {
-            val parts = utteranceId?.split(':') ?: return
-            if (parts.size < 4 || parts[3] != "1") return
-            val gen = parts[0].toIntOrNull() ?: return
-            main.post {
-                if (gen != generation || !playing) return@post
-                loadChapter(chapter + 1, 0, autoplay = true)
-            }
+    override fun onWord(index: Int, word: Int) {
+        if (!playing || index != paragraph) return
+        this.word = word
+        publish()
+    }
+
+    override fun onFinished() {
+        if (!playing) return
+        if (sleepEndOfChapter) {
+            sleepEndOfChapter = false
+            playing = false
+            loadChapter(chapter + 1, 0, autoplay = false)
+            releaseWake(); unregisterNoisy()
+            return
         }
+        loadChapter(chapter + 1, 0, autoplay = true)
+    }
 
-        @Deprecated("Deprecated in Java")
-        override fun onError(utteranceId: String?) = onDone(utteranceId)
-
-        override fun onError(utteranceId: String?, errorCode: Int) = onDone(utteranceId)
+    override fun onSpeakerError(message: String) {
+        fail(message)
+        pause()
     }
 
     private fun pause() {
         if (!playing) return
         playing = false
-        generation++
-        tts?.stop()
+        speaker.stop()
         releaseWake()
         unregisterNoisy()
-        bookId?.let { Library.updateProgress(this, it, chapter, paragraph) }
+        saveProgress()
         publish()
     }
 
     private fun resume() {
-        if (playing || book == null) return
+        if (playing || book == null || loading) return
+        if (prefs.engine != speakerEngine) {
+            speaker.release(); createSpeaker()
+        }
         if (paragraphs.isEmpty()) {
             loadChapter(chapter, 0, autoplay = true); return
         }
-        playing = true
         speakFrom(paragraph)
     }
 
     private fun skip(delta: Int) {
-        if (book == null) return
+        if (book == null || loading) return
         val target = paragraph + delta
         when {
             target < 0 -> if (chapter > 0) loadChapter(chapter - 1, 0, autoplay = playing)
             target >= paragraphs.size -> loadChapter(chapter + 1, 0, autoplay = playing)
             else -> {
                 paragraph = target
+                word = -1
                 if (playing) speakFrom(paragraph) else {
-                    bookId?.let { Library.updateProgress(this, it, chapter, paragraph) }
-                    publish()
+                    saveProgress(); publish()
                 }
             }
         }
     }
 
+    private fun onSettingsChanged() {
+        if (prefs.engine != speakerEngine) {
+            val wasPlaying = playing
+            speaker.release()
+            createSpeaker()
+            if (wasPlaying) speakFrom(paragraph) else publish()
+            return
+        }
+        if (speaker.applySettings() && playing) speakFrom(paragraph)
+    }
+
     private fun setSleep(minutes: Int) {
         main.removeCallbacks(sleepRunnable)
+        sleepEndOfChapter = minutes == SLEEP_END_OF_CHAPTER
         if (minutes > 0) {
             sleepAt = System.currentTimeMillis() + minutes * 60_000L
             main.postDelayed(sleepRunnable, minutes * 60_000L)
@@ -385,24 +386,32 @@ class TtsService : Service() {
 
     private fun stopAll() {
         playing = false
-        generation++
-        tts?.stop()
+        loadGeneration++
+        speaker.stop()
         main.removeCallbacks(sleepRunnable)
         sleepAt = 0
-        bookId?.let { Library.updateProgress(this, it, chapter, paragraph) }
+        sleepEndOfChapter = false
+        saveProgress()
         releaseWake()
         unregisterNoisy()
         abandonFocus()
-        _state.value = PlaybackState(error = _state.value.error)
+        _state.value = PlaybackState(error = _state.value.error, errorSeq = _state.value.errorSeq)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
+    private fun saveProgress() {
+        bookId?.let { Library.updateProgress(this, it, chapter, paragraph) }
+    }
+
+    private fun fail(message: String) {
+        errorSeq++
+        _state.value = _state.value.copy(error = message, errorSeq = errorSeq)
+    }
+
     override fun onDestroy() {
         main.removeCallbacksAndMessages(null)
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
+        speaker.release()
         session.isActive = false
         session.release()
         book?.close()
@@ -410,20 +419,32 @@ class TtsService : Service() {
         releaseWake()
         unregisterNoisy()
         abandonFocus()
-        if (_state.value.active) _state.value = PlaybackState()
+        if (_state.value.active) _state.value = PlaybackState(error = _state.value.error, errorSeq = _state.value.errorSeq)
         super.onDestroy()
     }
 
     // --------------------------------------------------------- state & notification
 
-    private fun publish(loading: Boolean = false, error: String? = null) {
+    private fun publish() {
+        val b = book
         _state.value = PlaybackState(
             active = true, playing = playing, loading = loading, bookId = bookId,
-            chapter = chapter, paragraph = paragraph, sleepAt = sleepAt, error = error,
+            bookTitle = bookTitle, author = author, coverPath = coverPath,
+            chapter = chapter, chapterCount = b?.spine?.size ?: 0,
+            chapterTitle = b?.chapterTitle(chapter).orEmpty(),
+            paragraph = paragraph, paragraphCount = paragraphs.size, word = word,
+            text = paragraphs.getOrNull(paragraph),
+            sleepAt = if (sleepEndOfChapter) -1L else sleepAt, engine = speakerEngine,
+            error = _state.value.error, errorSeq = _state.value.errorSeq,
         )
-        updateSession()
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        if (bookId != null) nm.notify(NOTIF_ID, buildNotification())
+        // Word updates are frequent; only refresh session/notification when something visible changed.
+        val key = "$bookId:$chapter:$paragraph:$playing:$loading"
+        if (key != lastNotifiedKey) {
+            lastNotifiedKey = key
+            updateSession()
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            if (bookId != null) nm.notify(NOTIF_ID, buildNotification())
+        }
     }
 
     private fun updateSession() {
@@ -438,14 +459,12 @@ class TtsService : Service() {
                     PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f
                 ).build()
         )
-        val chapterTitle = book?.chapterTitle(chapter).orEmpty()
-        session.setMetadata(
-            MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, chapterTitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, bookTitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, bookTitle)
-                .build()
-        )
+        val meta = MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, book?.chapterTitle(chapter).orEmpty())
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, author.ifEmpty { bookTitle })
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, bookTitle)
+        coverBitmap?.let { meta.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) }
+        session.setMetadata(meta.build())
     }
 
     private fun goForeground() {
@@ -460,18 +479,18 @@ class TtsService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+    private fun openPlayerIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0, Intent(this, PlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
     private fun buildNotification(): Notification {
-        val open = Intent(this, ReaderActivity::class.java)
-            .putExtra(ReaderActivity.EXTRA_BOOK_ID, bookId)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val contentIntent = PendingIntent.getActivity(
-            this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_headphones)
             .setContentTitle(bookTitle.ifEmpty { getString(R.string.app_name) })
             .setContentText(book?.chapterTitle(chapter) ?: getString(R.string.preparing))
-            .setContentIntent(contentIntent)
+            .setLargeIcon(coverBitmap)
+            .setContentIntent(openPlayerIntent())
             .setDeleteIntent(servicePending(ACTION_STOP, 5))
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -543,22 +562,5 @@ class TtsService : Service() {
 
     private fun releaseWake() {
         wakeLock?.let { if (it.isHeld) it.release() }
-    }
-
-    /** Splits long paragraphs at sentence boundaries so each piece fits the TTS input limit. */
-    private fun splitText(text: String, maxLen: Int): List<String> {
-        if (text.length <= maxLen) return listOf(text)
-        val out = mutableListOf<String>()
-        var rest = text
-        while (rest.length > maxLen) {
-            val window = rest.substring(0, maxLen)
-            var cut = maxOf(window.lastIndexOf(". "), window.lastIndexOf("! "), window.lastIndexOf("? "))
-            if (cut < maxLen / 3) cut = window.lastIndexOf(' ')
-            if (cut <= 0) cut = maxLen - 1
-            out.add(rest.substring(0, cut + 1).trim())
-            rest = rest.substring(cut + 1)
-        }
-        if (rest.isNotBlank()) out.add(rest.trim())
-        return out
     }
 }

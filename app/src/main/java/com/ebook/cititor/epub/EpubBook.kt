@@ -3,6 +3,10 @@ package com.ebook.cititor.epub
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
+import org.jsoup.nodes.TextNode
+import org.jsoup.select.NodeTraversor
+import org.jsoup.select.NodeVisitor
 import org.jsoup.parser.Parser
 import java.io.Closeable
 import java.io.File
@@ -19,7 +23,7 @@ class EpubBook private constructor(val file: File, private val zip: ZipFile) : C
     data class TocEntry(val title: String, val spineIndex: Int, val depth: Int)
 
     /** A chapter prepared for display and for text-to-speech. */
-    class Chapter(val html: String, val paragraphs: List<String>)
+    class Chapter(val html: String, val paragraphs: List<Paragraph>)
 
     var title: String = ""
         private set
@@ -176,13 +180,78 @@ class EpubBook private constructor(val file: File, private val zip: ZipFile) : C
             }
             val paragraphs = blocks.mapIndexed { i, el ->
                 el.attr("data-tts", i.toString())
-                el.text().trim()
+                wrapWords(el)
             }
             doc.head().append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
             if (headExtra.isNotEmpty()) doc.head().append(headExtra)
             doc.outputSettings().prettyPrint(false)
             return Chapter(doc.outerHtml(), paragraphs)
         }
+
+        private val SKIP_TEXT = setOf("script", "style", "rt", "rp")
+        private val BREAKING = setOf(
+            "br", "p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre",
+            "dt", "dd", "td", "th", "tr", "figcaption", "section", "article", "img", "hr",
+        )
+        private val WORD = Regex("\\S+")
+
+        /**
+         * Wraps every word of [block] in `<span data-w="N">` and returns the spoken text with the
+         * start offset of each word. Pieces that touch without whitespace (e.g. drop caps:
+         * `<span>O</span>nce`) share one word index and are spoken as a single word.
+         */
+        fun wrapWords(block: Element): Paragraph {
+            val events = ArrayList<Any>() // TextNode or BREAK
+            NodeTraversor.traverse(object : NodeVisitor {
+                override fun head(node: Node, depth: Int) {
+                    if (node is TextNode) events.add(node)
+                    else if (node is Element && node !== block && node.normalName() in BREAKING) events.add(BREAK)
+                }
+                override fun tail(node: Node, depth: Int) {
+                    if (node is Element && node !== block && node.normalName() in BREAKING) events.add(BREAK)
+                }
+            }, block)
+
+            val sb = StringBuilder()
+            val starts = ArrayList<Int>()
+            var word = -1
+            var boundary = true
+            for (ev in events) {
+                if (ev === BREAK) { boundary = true; continue }
+                val tn = ev as TextNode
+                if (generateSequence(tn.parentNode()) { it.parentNode() }
+                        .any { it is Element && it.normalName() in SKIP_TEXT }) continue
+                val text = tn.wholeText
+                if (text.isBlank()) { if (text.isNotEmpty()) boundary = true; continue }
+                val replacement = ArrayList<Node>()
+                var pos = 0
+                for (m in WORD.findAll(text)) {
+                    if (m.range.first > pos) {
+                        replacement.add(TextNode(text.substring(pos, m.range.first)))
+                        boundary = true
+                    }
+                    val continues = !boundary && word >= 0
+                    if (!continues) {
+                        word++
+                        if (sb.isNotEmpty()) sb.append(' ')
+                        starts.add(sb.length)
+                    }
+                    sb.append(m.value)
+                    replacement.add(Element("span").attr("data-w", word.toString()).appendText(m.value))
+                    boundary = false
+                    pos = m.range.last + 1
+                }
+                if (pos < text.length) {
+                    replacement.add(TextNode(text.substring(pos)))
+                    boundary = true
+                }
+                replacement.forEach { tn.before(it) }
+                tn.remove()
+            }
+            return Paragraph(sb.toString(), starts.toIntArray())
+        }
+
+        private val BREAK = Any()
 
         fun resolvePath(baseDir: String, href: String): String {
             val clean = decodePercent(href.substringBefore('#').substringBefore('?'))

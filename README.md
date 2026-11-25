@@ -1,33 +1,37 @@
 # Cititor EPUB
 
-Aplicație Android pentru **citit** și **ascultat** cărți `.epub`.
+Aplicație Android pentru **ascultat** și **citit** cărți, documente și articole, cu voce naturală și text sincronizat cuvânt cu cuvânt.
 
 ## Funcții
 
-**Bibliotecă**
-- Adaugi cărți `.epub` din telefon (butonul „Adaugă carte”) sau le deschizi direct din managerul de fișiere („Deschide cu…”).
-- Copertă, titlu, autor și progres pentru fiecare carte; poziția de citire se salvează automat.
-- Apasă lung pe o carte pentru a o șterge.
+**Ascultare**
+- Două tipuri de voce: **vocea telefonului** (gratuită, merge offline) sau **voci AI ElevenLabs** (foarte naturale, inclusiv în română; necesită cheia ta API).
+- **Evidențiere cuvânt cu cuvânt** în text, cu derulare automată, pentru ambele tipuri de voce.
+- **Ecran „Se redă”**: copertă mare, fundal colorat după copertă, textul curent cu cuvântul rostit evidențiat, bară de poziție în capitol, viteză (0,5x–3x), voce, sleep timer (inclusiv „la sfârșitul capitolului”).
+- **Mini-player** în bibliotecă; controale în notificare, pe ecranul de blocare și din căști; merge cu ecranul stins.
+- Pauză automată la deconectarea căștilor sau la apeluri.
+
+**Import**
+- **EPUB** (2 și 3), **PDF** (cu text; coperta = prima pagină), **TXT** (UTF-8 sau diacritice vechi Windows-1250).
+- **Articole web**: lipești un link, aplicația extrage textul articolului (fără meniuri și reclame).
+- **Text lipit** sau **partajat** din orice aplicație (butonul „Distribuie” → Cititor EPUB); se pot partaja și linkuri și fișiere.
 
 **Citire**
-- Suport EPUB 2 și EPUB 3 (cuprins NCX sau nav), imagini, linkuri interne.
-- Cuprins, mărime text, temă Luminos / Sepia / Întunecat, font cu sau fără serife.
-- Atinge textul pentru a ascunde/arăta meniurile; butoanele ⏪ ⏩ dau pagina, ⏮ ⏭ schimbă capitolul.
+- Bibliotecă tip grilă cu coperți și progres; buton 🎧 pe fiecare carte pentru ascultare directă.
+- Cititor cu cuprins, mărime text, temă Luminos / Sepia / Întunecat, font cu sau fără serife.
+- Dublu-tap pe un paragraf pornește ascultarea de acolo.
 
-**Ascultare (Text-to-Speech)**
-- Butonul ▶ citește cu voce tare de la paragraful vizibil; **dublu-tap** pe un paragraf pornește citirea de acolo.
-- Paragraful citit este evidențiat și pagina îl urmărește; trece automat la capitolul următor.
-- Merge cu ecranul stins / în fundal, cu controale în notificare, pe ecranul de blocare și din căști.
-- Viteză și ton reglabile, oprire automată (sleep timer), pauză automată la deconectarea căștilor.
-- Limba vocii se alege după limba cărții (ex. română), dacă vocea este instalată.
+## Voci AI ElevenLabs (opțional)
 
-## Voce în limba română
+1. Creează un cont pe elevenlabs.io și o cheie API (Profil → API Keys).
+2. În aplicație: player → butonul vocii (sau meniu → Voce) → **Voce AI** → introdu cheia → **Încarcă**.
+3. Alege o voce (atingerea redă o mostră) și modelul: *Calitate maximă (Multilingual v2)* sau *Rapid, cost redus (Flash v2.5)*.
 
-Aplicația folosește motorul Text-to-Speech al telefonului. Pentru o voce bună în română:
-1. Instalează/actualizează **Speech Services by Google** (Google Text-to-Speech) din Magazin Play.
-2. Setări → Sistem → Limbă și introducere text → Ieșire text-în-vorbire → ⚙ → Instalează date vocale → Română.
+Fiecare caracter citit consumă credite din contul tău ElevenLabs. Audio-ul generat se salvează pe telefon (până la ~300 MB), deci reascultarea aceluiași fragment nu costă din nou. Cheia se păstrează doar pe telefon și se trimite doar către api.elevenlabs.io.
 
-Din aplicație: Setări (iconița „T”) → „Voce și limbă (setări sistem)”.
+## Voce de telefon în limba română
+
+Instalează/actualizează **Speech Services by Google** din Magazin Play, apoi Setări → Ieșire text-în-vorbire → Instalează date vocale → Română. Din aplicație: Voce → Voce telefon → „Voce și limbă (setări sistem)”.
 
 ## Compilare
 
@@ -37,22 +41,28 @@ Necesită JDK 17+ și Android SDK (platforma 35).
 ./gradlew assembleDebug
 ```
 
-APK-ul rezultă în `app/build/outputs/apk/debug/app-debug.apk`. Teste unitare (parserul EPUB):
+APK-ul: `app/build/outputs/apk/debug/app-debug.apk`. Teste unitare:
 
 ```bash
 ./gradlew testDebugUnitTest
 ```
 
-La fiecare push, GitHub Actions construiește APK-ul și îl publică ca artefact („cititor-epub-debug”) în pagina rulării din tab-ul **Actions**.
+La fiecare push, GitHub Actions construiește APK-ul și îl publică ca artefact („cititor-epub-debug”) în tab-ul **Actions**.
 
 ## Structură
 
 | Fișier | Rol |
 |---|---|
-| `epub/EpubBook.kt` | Parser EPUB (container, OPF, spine, cuprins, copertă) și pregătirea capitolelor pe paragrafe |
-| `data/Library.kt` | Biblioteca de cărți și progresul de citire |
-| `ui/MainActivity.kt` | Ecranul bibliotecii |
-| `ui/ReaderActivity.kt` | Cititorul (WebView), setări, cuprins, controale audio |
-| `tts/TtsService.kt` | Serviciul de redare vocală în fundal (notificare, MediaSession, audio focus) |
+| `epub/EpubBook.kt` | Parser EPUB; împarte capitolele în paragrafe și marchează fiecare cuvânt pentru sincronizare |
+| `epub/EpubWriter.kt` | Generează EPUB din text (pentru PDF, TXT, articole, text lipit) |
+| `data/Importer.kt` | Import PDF / TXT / link web / text |
+| `data/Library.kt` | Biblioteca și progresul |
+| `tts/TtsService.kt` | Serviciul de redare în fundal (notificare, MediaSession, sleep timer) |
+| `tts/SystemSpeaker.kt` | Vocea telefonului, cu poziție pe cuvânt |
+| `tts/ElevenLabsSpeaker.kt`, `tts/ElevenLabsApi.kt` | Voci AI ElevenLabs cu marcaje de timp pe caracter, cache local |
+| `ui/MainActivity.kt` | Biblioteca, importul, mini-player |
+| `ui/PlayerActivity.kt` | Ecranul „Se redă” |
+| `ui/ReaderActivity.kt` | Cititorul cu evidențiere sincronizată |
+| `ui/VoicesActivity.kt` | Alegerea vocii |
 
 Cerințe: Android 8.0 (API 26) sau mai nou.

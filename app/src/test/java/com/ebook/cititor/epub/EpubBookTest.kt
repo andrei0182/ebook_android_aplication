@@ -78,15 +78,15 @@ class EpubBookTest {
 
             val ch = book.loadChapter(0, "<style id=\"__rs\"></style>")
             assertEquals(4, ch.paragraphs.size)
-            assertEquals("Partea I", ch.paragraphs[0])
-            assertTrue(ch.paragraphs[1].startsWith("Stau câteodată"))
-            assertEquals("Citat imbricat.", ch.paragraphs[2])
-            assertEquals("Ultimul paragraf.", ch.paragraphs[3])
+            assertEquals("Partea I", ch.paragraphs[0].text)
+            assertTrue(ch.paragraphs[1].text.startsWith("Stau câteodată"))
+            assertEquals("Citat imbricat.", ch.paragraphs[2].text)
+            assertEquals("Ultimul paragraf.", ch.paragraphs[3].text)
             assertTrue(ch.html.contains("data-tts=\"3\""))
             assertTrue(ch.html.contains("__rs"))
 
             val ch2 = book.loadChapter(1)
-            assertEquals(listOf("Text fără paragrafe și cu span"), ch2.paragraphs)
+            assertEquals(listOf("Text fără paragrafe și cu span"), ch2.paragraphs.map { it.text })
         }
     }
 
@@ -118,7 +118,7 @@ class EpubBookTest {
             assertEquals("cover.png", book.coverPath)
             assertEquals(listOf(EpubBook.TocEntry("Început", 0, 0)), book.toc)
             assertEquals("Început", book.chapterTitle(0))
-            assertEquals(listOf("Unu", "Doi"), book.loadChapter(0).paragraphs)
+            assertEquals(listOf("Unu", "Doi"), book.loadChapter(0).paragraphs.map { it.text })
         }
     }
 
@@ -127,5 +127,40 @@ class EpubBookTest {
         assertEquals("OEBPS/img/a.png", EpubBook.resolvePath("OEBPS/text", "../img/a.png"))
         assertEquals("a b.html", EpubBook.resolvePath("", "a%20b.html#frag"))
         assertEquals("ț.html", EpubBook.resolvePath("", "%C8%9B.html"))
+    }
+
+    @Test
+    fun wrapsWordsConsistently() {
+        val ch = EpubBook.renderHtml(
+            "<p><span class='dc'>O</span>dată ca-n   povești,<br/>a fost <b>odată</b>.</p><p>Doi</p>", ""
+        )
+        val p = ch.paragraphs[0]
+        assertEquals("Odată ca-n povești, a fost odată.", p.text)
+        assertEquals(listOf(0, 6, 11, 20, 22, 27), p.wordStarts.toList())
+        // Drop cap and the rest of the word share word index 0.
+        assertTrue(ch.html.contains("<span class=\"dc\"><span data-w=\"0\">O</span></span><span data-w=\"0\">dată</span>"))
+        assertTrue(ch.html.contains("<b><span data-w=\"5\">odată</span></b><span data-w=\"5\">.</span>"))
+        assertEquals(0, p.wordAt(3))
+        assertEquals(2, p.wordAt(11))
+        assertEquals(2, p.wordAt(19))
+        assertEquals(5, p.wordAt(100))
+        assertEquals("Doi", ch.paragraphs[1].text)
+    }
+
+    @Test
+    fun writerRoundTrip() {
+        val f = File.createTempFile("writer", ".epub").apply { deleteOnExit() }
+        val paras = EpubWriter.paragraphs("Capitolul 1\n\nPrimul rând\ncontinuă aici, cu des-\npărțire.\n\nAl doilea <paragraf> & altceva.")
+        assertEquals(listOf("Capitolul 1", "Primul rând continuă aici, cu despărțire.", "Al doilea <paragraf> & altceva."), paras)
+        val sections = EpubWriter.sectionsFromParagraphs(paras, "Partea")
+        assertEquals("Capitolul 1", sections[0].title)
+        EpubWriter.write(f, "Titlu & co", "Autor", "ro", sections)
+        EpubBook.open(f).use { book ->
+            assertEquals("Titlu & co", book.title)
+            assertEquals("ro", book.language)
+            assertEquals(1, book.spine.size)
+            assertEquals("Capitolul 1", book.toc[0].title)
+            assertEquals(paras, book.loadChapter(0).paragraphs.map { it.text })
+        }
     }
 }

@@ -52,6 +52,12 @@
             android:orientation="horizontal">
 
             <ImageButton
+                android:id="@+id/btn_player"
+                style="@style/ReaderButton"
+                android:contentDescription="@string/now_playing"
+                android:src="@drawable/ic_headset" />
+
+            <ImageButton
                 android:id="@+id/btn_prev_chapter"
                 style="@style/ReaderButton"
                 android:contentDescription="@string/prev_chapter"
@@ -61,24 +67,22 @@
                 android:id="@+id/btn_rewind"
                 style="@style/ReaderButton"
                 android:contentDescription="@string/previous"
-                android:src="@android:drawable/ic_media_rew"
-                app:tint="?attr/colorOnSurface" />
+                android:src="@drawable/ic_rewind" />
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/btn_play"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp"
+                android:layout_marginHorizontal="8dp"
                 android:contentDescription="@string/listen"
-                android:src="@android:drawable/ic_media_play"
+                android:src="@drawable/ic_play"
                 app:fabSize="normal" />
 
             <ImageButton
                 android:id="@+id/btn_forward"
                 style="@style/ReaderButton"
                 android:contentDescription="@string/next"
-                android:src="@android:drawable/ic_media_ff"
-                app:tint="?attr/colorOnSurface" />
+                android:src="@drawable/ic_forward" />
 
             <ImageButton
                 android:id="@+id/btn_next_chapter"
