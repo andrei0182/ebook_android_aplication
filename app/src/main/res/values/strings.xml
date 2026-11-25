@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cititor EPUB</string>
+    <string name="library">Biblioteca mea</string>
+    <string name="add_book">Adaugă carte</string>
+    <string name="empty_library">Nu ai nicio carte încă.\nAdaugă un fișier .epub ca să începi să citești sau să asculți.</string>
+    <string name="unknown_author">Autor necunoscut</string>
+    <string name="progress_format">Capitolul %1$d din %2$d</string>
+    <string name="chapter_of">%1$d / %2$d</string>
+    <string name="import_failed">%d fișier(e) nu au putut fi importate (nu sunt EPUB valide).</string>
+    <string name="delete_title">Ștergi cartea?</string>
+    <string name="delete_message">„%s” va fi ștearsă din bibliotecă.</string>
+    <string name="delete">Șterge</string>
+    <string name="cancel">Anulează</string>
+    <string name="close">Închide</string>
+    <string name="book_missing">Cartea nu mai există.</string>
+    <string name="open_failed">Cartea nu poate fi deschisă: %s</string>
+    <string name="toc">Cuprins</string>
+    <string name="settings">Setări</string>
+    <string name="sleep_timer">Oprire automată</string>
+    <string name="sleep_remaining">Oprire automată în %d min</string>
+    <string name="stop_audio">Oprește audio</string>
+    <string name="listen">Ascultă</string>
+    <string name="play">Redă</string>
+    <string name="pause">Pauză</string>
+    <string name="stop">Oprește</string>
+    <string name="next">Înainte</string>
+    <string name="previous">Înapoi</string>
+    <string name="prev_chapter">Capitolul anterior</string>
+    <string name="next_chapter">Capitolul următor</string>
+    <string name="preparing">Se pregătește…</string>
+    <string name="channel_playback">Redare audio</string>
+    <string name="text_size">Mărime text</string>
+    <string name="theme">Temă</string>
+    <string name="theme_light">Luminos</string>
+    <string name="theme_sepia">Sepia</string>
+    <string name="theme_dark">Întunecat</string>
+    <string name="serif_font">Font cu serife</string>
+    <string name="reading_section">Citire</string>
+    <string name="listening_section">Ascultare</string>
+    <string name="speech_rate">Viteză voce</string>
+    <string name="speech_pitch">Ton voce</string>
+    <string name="tts_system">Voce și limbă (setări sistem)</string>
+    <string name="tts_settings_missing">Setările Text-to-Speech nu pot fi deschise pe acest dispozitiv.</string>
+    <string name="reader_hint">Atinge textul pentru a ascunde/arăta meniurile. Atinge de două ori un paragraf pentru a asculta de acolo.</string>
+    <string-array name="sleep_options">
+        <item>Dezactivat</item>
+        <item>10 minute</item>
+        <item>15 minute</item>
+        <item>30 minute</item>
+        <item>45 minute</item>
+        <item>60 minute</item>
+        <item>90 minute</item>
+    </string-array>
+</resources>
